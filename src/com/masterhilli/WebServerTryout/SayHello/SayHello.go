@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
-	"log"
 )
 
 func sayHelloName(w http.ResponseWriter, r *http.Request) {
@@ -17,11 +17,11 @@ func sayHelloName(w http.ResponseWriter, r *http.Request) {
 	for k, v := range r.Form {
 		fmt.Println("key:", k)
 		fmt.Println("val:", strings.Join(v, ""))
-		if (k == "name") {
+		if k == "name" {
 			name = strings.Join(v, "")
 		}
 	}
-	if (len(name) == 0) {
+	if len(name) == 0 {
 		fmt.Fprintf(w, "Hello Martin!") // send data to client side
 	} else {
 		fmt.Fprintf(w, fmt.Sprintf("Hello %s!", name))
@@ -30,10 +30,9 @@ func sayHelloName(w http.ResponseWriter, r *http.Request) {
 
 type ServerHandlerMutex struct{}
 
-
 func (this ServerHandlerMutex) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	if (r.URL.Path == "/say") ||  (r.URL.Path == "/sayMyName/"){
+	if (r.URL.Path == "/say") || (r.URL.Path == "/sayMyName/") {
 		sayHelloName(w, r)
 		return
 	}

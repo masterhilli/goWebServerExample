@@ -5,9 +5,10 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"strings"
 	"os"
+	"strings"
 )
+
 const userNameKey string = "username"
 const passwordKey string = "password"
 
@@ -32,11 +33,12 @@ func sayHelloName(w http.ResponseWriter, r *http.Request) {
 func login(w http.ResponseWriter, r *http.Request) {
 	logger.Println("LOGIN: method:", r.Method) //get request method
 	if r.Method == "GET" {
+		// TODO: add fields to test validator or unit tests
 		t, err := template.ParseFiles(pathToResources + "\\resources\\com\\masterhilli\\WebServerTryout\\Forms\\login.gtpl")
-		if (err == nil) {
+		if err == nil {
 			t.Execute(w, nil)
 		} else {
-			logger.Println("Error on reading resource: " + err.Error());
+			logger.Println("Error on reading resource: " + err.Error())
 		}
 	} else {
 		r.ParseForm()
