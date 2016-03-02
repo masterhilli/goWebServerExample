@@ -54,12 +54,24 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func tryEscapeSequences(w http.ResponseWriter, z *http.Request) {
+	t, _ := template.New("foo").Parse(
+		`{{define "T"}}Hello, {{.}}!{{end}}<br/>
+		{{define "H"}} Escaped HTML: {{.}}!{{end}}<br/>
+		{{define "N"}} Not escaped HTML: {{.}}!{{end}}`)
+	_ = t.ExecuteTemplate(w, "T", template.HTML("<script>alert('you have been pwned')</script>"))
+	t.ExecuteTemplate(w, "H", template.HTMLEscapeString("<script>alert('you have been pwned')</script>"))
+	t.ExecuteTemplate(w, "N", "<script>alert('you have been pwned')</script>") // okay I do not get why this is escaped???
+
+}
+
 func validateField(key, value string, validator Validator) bool {
 	return validator.Validate(key, value)
 }
 
 func RunWebServer(resourceRootFolderPath string) {
 	pathToResources = resourceRootFolderPath
+	http.HandleFunc("/escape", tryEscapeSequences)
 	http.HandleFunc("/say", sayHelloName) // setting router rule
 	http.HandleFunc("/login", login)
 	err := http.ListenAndServe(":9090", nil) // setting listening port
