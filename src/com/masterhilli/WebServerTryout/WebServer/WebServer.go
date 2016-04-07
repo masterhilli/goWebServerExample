@@ -1,4 +1,4 @@
-package FormUser
+package Webserver
 
 import (
 	"fmt"
@@ -152,6 +152,8 @@ func validateField(key, value string, validator Validator) bool {
 }
 
 func RunWebServer(resourceRootFolderPath string) {
+
+
 	pathToResources = resourceRootFolderPath
 	http.HandleFunc("/escape", tryEscapeSequences)
 	http.HandleFunc("/upload", upload)
