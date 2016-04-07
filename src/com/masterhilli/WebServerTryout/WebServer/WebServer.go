@@ -12,58 +12,120 @@ import (
 	"io"
 	"strconv"
 	"io/ioutil"
+	. "./DB"
+	. "./Logger"
 )
 
-const userNameKey string = "username"
-const passwordKey string = "password"
+const (
+	userNameKey string = "Username"
+ 	passwordKey string = "Password"
+	loginRelativeResourcePath string = "\\resources\\com\\masterhilli\\WebServerTryout\\Forms\\"
+)
 
-var pathToResources string = "..\\..\\..\\..\\.."
-var logger *log.Logger = log.New(os.Stdout, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+// TODO: make a singleton out of the server
+var (
+	pathToResources string = "..\\..\\..\\..\\.."
+	tokens map[string]bool = make(map[string]bool)
 
-func sayHelloName(w http.ResponseWriter, r *http.Request) {
-	logger.Println("SAYHELLONAME: method:" +  r.Method)
-	r.ParseForm() //Parse url parameters passed, then parse the response packet for the POST body (request body)
-	// attention: If you do not call ParseForm method, the following data can not be obtained form
-	logger.Println(r.Form) // print information on server side.
-	logger.Println("path", r.URL.Path)
-	logger.Println("scheme", r.URL.Scheme)
-	logger.Println(r.Form["url_long"])
-	for k, v := range r.Form {
-		logger.Println("key:", k)
-		logger.Println("val:", strings.Join(v, ""))
-	}
-	fmt.Fprintf(w, "Hello Martin!") // write data to response
-}
+	dbConnection DBConnector = DBConnector{}
+)
 
 func login(w http.ResponseWriter, r *http.Request) {
-	logger.Println("LOGIN: method:" +  r.Method) //get request method
+	LOGGER.Println("LOGIN: method:" +  r.Method) //get request method
 	if r.Method == "GET" {
 		// TODO: add fields to test validator or unit tests
-		t, err := template.ParseFiles(pathToResources + "\\resources\\com\\masterhilli\\WebServerTryout\\Forms\\login.gtpl")
+		t, err := template.ParseFiles(pathToResources + loginRelativeResourcePath +"login.gtpl")
 		if err == nil {
 			t.Execute(w, nil)
 		} else {
-			logger.Println("Error on reading resource: " + err.Error())
+			LOGGER.Println("Error on reading resource: " + err.Error())
 		}
 	} else {
 		r.ParseForm()
 		// logic part of log in
-		username := template.HTMLEscapeString(r.Form.Get(userNameKey))
-		password := template.HTMLEscapeString(r.Form.Get(passwordKey))
+		username := r.Form.Get(userNameKey)
+		password := r.Form.Get(passwordKey)
+		pwdFromDB := dbConnection.SelectTable(TABLE_NAME_USERS).ReceiveStringWhere(COL_USER_NAME, username)
+		if strings.Compare(pwdFromDB, password) == 0 {
+			//TODO: return something Successfull ;)
+			fmt.Fprintf(w, "You lucky fuck, you got in!")
+		} else {
+			fmt.Fprintf(w, "Me scuzzi, you are nota gona geta in!")
+		}
+		/*
+		template.HTMLEscapeString(r.Form.Get(userNameKey))
+		password := template.HTMLEscapeString()
 
 		validateField(userNameKey, username, RequiredFieldValidator{})
 		validateField(passwordKey, password, NumberFieldValidator{})
 
 		logger.Printf("Usr: \"%s\" / Pwd: \"%s\"", username, password)
-		template.HTMLEscape(w, []byte(r.Form.Get(userNameKey))) // responded to clients
+		template.HTMLEscape(w, []byte(r.Form.Get(userNameKey))) // responded to clients */
 	}
 }
 
-var tokens map[string]bool = make(map[string]bool)
+
+func bootStrapGet(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("method:", r.Method)
+	if r.Method == "GET" {
+		r.ParseForm()
+		bytes, err := ioutil.ReadFile("."+ r.RequestURI)
+		if err != nil {
+			LOGGER.Println(err.Error())
+		}
+		w.Header().Set("Content-Type", "text/css")
+		w.Write(bytes)
+		LOGGER.Println(http.DetectContentType(bytes))
+
+	}
+}
+
+func RunWebServer(resourceRootFolderPath string) {
+
+	dbConnection.Initialize("MartinsWebServer")
+	defer dbConnection.Close()
+	pathToResources = resourceRootFolderPath
+	//http.HandleFunc("/escape", tryEscapeSequences)
+	//http.HandleFunc("/upload", upload)
+	//http.HandleFunc("/say", sayHelloName) // setting router rule
+	http.HandleFunc("/login", login)
+	//http.HandleFunc("/login2", tokenizerLogin)
+	http.HandleFunc("/bootstrap.min.css", bootStrapGet)
+	err := http.ListenAndServe(":9090", nil) // setting listening port
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
+}
+
+
+//**************************************************************************************
+//********************* TRY OUT CODE ***************************************************
+
+func sayHelloName(w http.ResponseWriter, r *http.Request) {
+	LOGGER.Println("SAYHELLONAME: method:" +  r.Method)
+	r.ParseForm() //Parse url parameters passed, then parse the response packet for the POST body (request body)
+	// attention: If you do not call ParseForm method, the following data can not be obtained form
+	LOGGER.Println(r.Form) // print information on server side.
+	LOGGER.Println("path", r.URL.Path)
+	LOGGER.Println("scheme", r.URL.Scheme)
+	LOGGER.Println(r.Form["url_long"])
+	for k, v := range r.Form {
+		LOGGER.Println("key:", k)
+		LOGGER.Println("val:", strings.Join(v, ""))
+	}
+	fmt.Fprintf(w, "Hello Martin!") // write data to response
+}
+
+
+func validateField(key, value string, validator Validator) bool {
+	return validator.Validate(key, value)
+}
+
+
 func tokenizerLogin(w http.ResponseWriter, r *http.Request) {
-	logger.Println("LOGIN2 method:", r.Method) // get request method
+	LOGGER.Println("LOGIN2 method:", r.Method) // get request method
 	r.ParseForm()
-	logger.Println(r.RequestURI)
+	LOGGER.Println(r.RequestURI)
 	if r.Method == "GET" {
 		crutime := time.Now().Unix()
 		h := md5.New()
@@ -71,7 +133,7 @@ func tokenizerLogin(w http.ResponseWriter, r *http.Request) {
 		token := fmt.Sprintf("%x", h.Sum(nil))
 		t, _ := template.ParseFiles(pathToResources + "\\resources\\com\\masterhilli\\WebServerTryout\\Forms\\login2.gtpl")
 		t.Execute(w, token)
-		logger.Println("again we are in the getter, but why?")
+		LOGGER.Println("again we are in the getter, but why?")
 	} else {
 		// log in request
 		r.ParseForm()
@@ -79,15 +141,15 @@ func tokenizerLogin(w http.ResponseWriter, r *http.Request) {
 		if token == "" {
 			retVal := "No token received, invalid call to login method!"
 			fmt.Fprintln(w, retVal)
-			logger.Println(retVal)
+			LOGGER.Println(retVal)
 			return
 		}else if (tokens[token] ) {
-			logger.Println("Token: " + token +" duplicate request. Ignore the request, but print the same")
+			LOGGER.Println("Token: " + token +" duplicate request. Ignore the request, but print the same")
 		}
 		tokens[token] = true
-		logger.Println("username length:", len(r.Form["username"][0]))
-		logger.Println("username:", template.HTMLEscapeString(r.Form.Get("username"))) // print in server side
-		logger.Println("password:", template.HTMLEscapeString(r.Form.Get("password")))
+		LOGGER.Println("username length:", len(r.Form["username"][0]))
+		LOGGER.Println("username:", template.HTMLEscapeString(r.Form.Get("username"))) // print in server side
+		LOGGER.Println("password:", template.HTMLEscapeString(r.Form.Get("password")))
 		template.HTMLEscape(w, []byte(r.Form.Get("username"))) // respond to client
 	}
 }
@@ -129,40 +191,5 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		}
 		defer f.Close()
 		io.Copy(f, file)
-	}
-}
-
-func bootStrapGet(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("method:", r.Method)
-	if r.Method == "GET" {
-		r.ParseForm()
-		bytes, err := ioutil.ReadFile("."+ r.RequestURI)
-		if err != nil {
-			logger.Println(err.Error())
-		}
-		w.Header().Set("Content-Type", "text/css")
-		w.Write(bytes)
-		logger.Println(http.DetectContentType(bytes))
-
-	}
-}
-
-func validateField(key, value string, validator Validator) bool {
-	return validator.Validate(key, value)
-}
-
-func RunWebServer(resourceRootFolderPath string) {
-
-
-	pathToResources = resourceRootFolderPath
-	http.HandleFunc("/escape", tryEscapeSequences)
-	http.HandleFunc("/upload", upload)
-	http.HandleFunc("/say", sayHelloName) // setting router rule
-	http.HandleFunc("/login", login)
-	http.HandleFunc("/login2", tokenizerLogin)
-	http.HandleFunc("/bootstrap.min.css", bootStrapGet)
-	err := http.ListenAndServe(":9090", nil) // setting listening port
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
 	}
 }

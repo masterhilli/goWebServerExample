@@ -6,8 +6,8 @@
 </head>
 <body>
 <form action="/login" method="POST">
-    Username:<input type="text" name="username">
-    Password:<input type="password" name="password">
+    Username:<input type="text" name="Username">
+    Password:<input type="password" name="Password">
     <input type="submit" value="Login">
 </form>
 </body>
